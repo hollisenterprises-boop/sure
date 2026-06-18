@@ -40,7 +40,7 @@ class PagesController < ApplicationController
     net_totals = income_statement.net_category_totals(period: @period)
 
     @cashflow_sankey_data = build_cashflow_sankey_data(net_totals, income_totals, expense_totals, family_currency)
-    @outflows_data = build_outflows_donut_data(net_totals)
+    @outflows_data = build_outflows_donut_data(net_totals, expense_totals, income_totals)
 
     @dashboard_sections = build_dashboard_sections
 
@@ -353,14 +353,31 @@ class PagesController < ApplicationController
       end
     end
 
-    def build_outflows_donut_data(net_totals)
+    def build_outflows_donut_data(net_totals, expense_totals, income_totals)
       currency_symbol = Money::Currency.new(net_totals.currency).symbol
       total = net_totals.total_net_expense
+
+      net_subcategories_by_parent = build_net_subcategories(expense_totals, income_totals)
 
       categories = net_totals.net_expense_categories
         .reject { |ct| ct.total.zero? }
         .sort_by { |ct| -ct.total }
         .map do |ct|
+          children = (net_subcategories_by_parent[ct.category.id] || [])
+            .select { |s| s[:net_direction] == :expense }
+            .sort_by { |s| -s[:total] }
+            .map do |s|
+              {
+                id: s[:category].id,
+                name: s[:category].name,
+                amount: s[:total].to_f.round(2),
+                currency: ct.currency,
+                percentage: total.zero? ? 0 : (s[:total].to_f / total * 100).round(1),
+                color: s[:category].color.presence || ct.category.color.presence || Category::UNCATEGORIZED_COLOR,
+                icon: s[:category].lucide_icon
+              }
+            end
+
           {
             id: ct.category.id,
             name: ct.category.name,
@@ -369,7 +386,8 @@ class PagesController < ApplicationController
             percentage: ct.weight.round(1),
             color: ct.category.color.presence || Category::UNCATEGORIZED_COLOR,
             icon: ct.category.lucide_icon,
-            clickable: !ct.category.other_investments?
+            clickable: !ct.category.other_investments?,
+            children: children
           }
         end
 
