@@ -363,20 +363,21 @@ class PagesController < ApplicationController
         .reject { |ct| ct.total.zero? }
         .sort_by { |ct| -ct.total }
         .map do |ct|
-          children = (net_subcategories_by_parent[ct.category.id] || [])
+          all_subs = net_subcategories_by_parent[ct.category.id] || []
+
+          children = all_subs
             .select { |s| s[:net_direction] == :expense }
             .sort_by { |s| -s[:total] }
-            .map do |s|
-              {
-                id: s[:category].id,
-                name: s[:category].name,
-                amount: s[:total].to_f.round(2),
-                currency: ct.currency,
-                percentage: total.zero? ? 0 : (s[:total].to_f / total * 100).round(1),
-                color: s[:category].color.presence || ct.category.color.presence || Category::UNCATEGORIZED_COLOR,
-                icon: s[:category].lucide_icon
-              }
-            end
+            .map { |s| build_donut_sub_node(s, ct, total) }
+
+          # Subcategories that net to income (e.g. rent received under a
+          # property's expense parent) are already subtracted from the
+          # parent's total above — surfaced separately so that offset isn't
+          # invisible to the user.
+          income_children = all_subs
+            .select { |s| s[:net_direction] == :income }
+            .sort_by { |s| -s[:total] }
+            .map { |s| build_donut_sub_node(s, ct, total) }
 
           {
             id: ct.category.id,
@@ -387,11 +388,24 @@ class PagesController < ApplicationController
             color: ct.category.color.presence || Category::UNCATEGORIZED_COLOR,
             icon: ct.category.lucide_icon,
             clickable: !ct.category.other_investments?,
-            children: children
+            children: children,
+            income_children: income_children
           }
         end
 
       { categories: categories, total: total.to_f.round(2), currency: net_totals.currency, currency_symbol: currency_symbol }
+    end
+
+    def build_donut_sub_node(sub, ct, total)
+      {
+        id: sub[:category].id,
+        name: sub[:category].name,
+        amount: sub[:total].to_f.round(2),
+        currency: ct.currency,
+        percentage: total.zero? ? 0 : (sub[:total].to_f / total * 100).round(1),
+        color: sub[:category].color.presence || ct.category.color.presence || Category::UNCATEGORIZED_COLOR,
+        icon: sub[:category].lucide_icon
+      }
     end
 
     def ensure_intro_guest!

@@ -61,7 +61,8 @@
         <div class="py-3 shadow-border-xs rounded-lg bg-container font-medium text-sm max-w-full">
           <% outflows_data[:categories].each_with_index do |category, idx| %>
             <% children = category[:children] || [] %>
-            <div<% if children.any? %> data-controller="category-disclosure"<% end %>>
+            <% income_children = category[:income_children] || [] %>
+            <div<% if children.any? || income_children.any? %> data-controller="category-disclosure"<% end %>>
             <%
               category_content = capture do
             %>
@@ -110,14 +111,14 @@
                 <%= category_content %>
               </div>
             <% end %>
-            <% if children.any? %>
+            <% if children.any? || income_children.any? %>
               <button type="button" class="p-2 flex-shrink-0 text-secondary hover:text-primary" data-action="category-disclosure#toggle">
                 <%= icon "chevron-down", size: "sm", color: "current", data: { category_disclosure_target: "chevron" }, class: "transition-transform" %>
               </button>
             <% end %>
             </div>
 
-            <% if children.any? %>
+            <% if children.any? || income_children.any? %>
               <div class="hidden pl-14 pr-3 pb-2 space-y-1" data-category-disclosure-target="content">
                 <% children.each do |child| %>
                   <%= link_to transactions_path(q: { categories: [child[:name]], start_date: period.date_range.first, end_date: period.date_range.last }),
@@ -129,6 +130,19 @@
                       <span class="text-sm text-secondary whitespace-nowrap w-10 @2xl:w-15 privacy-sensitive"><%= child[:percentage] %>%</span>
                     </span>
                   <% end %>
+                <% end %>
+
+                <% if income_children.any? %>
+                  <div class="border-t border-dashed border-subdued mx-2 my-1"></div>
+                  <% income_children.each do |inc| %>
+                    <%= link_to transactions_path(q: { categories: [inc[:name]], start_date: period.date_range.first, end_date: period.date_range.last }),
+                        class: "flex items-center justify-between p-2 rounded-lg hover:bg-surface-hover cursor-pointer gap-3",
+                        data: { turbo_frame: "_top", turbo_prefetch: false } do %>
+                      <span class="text-sm text-green-600 truncate">+ <%= inc[:name] %></span>
+                      <span class="text-sm font-medium text-green-600 whitespace-nowrap privacy-sensitive"><%= format_money Money.new(inc[:amount], inc[:currency]) %></span>
+                    <% end %>
+                  <% end %>
+                  <p class="text-xs text-subdued px-2 pt-1">Already subtracted from the total above — shown here so it isn't hidden.</p>
                 <% end %>
               </div>
             <% end %>
