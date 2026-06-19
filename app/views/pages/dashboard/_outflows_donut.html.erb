@@ -60,6 +60,8 @@
         </div>
         <div class="py-3 shadow-border-xs rounded-lg bg-container font-medium text-sm max-w-full">
           <% outflows_data[:categories].each_with_index do |category, idx| %>
+            <% children = category[:children] || [] %>
+            <div<% if children.any? %> data-controller="category-disclosure"<% end %>>
             <%
               category_content = capture do
             %>
@@ -89,9 +91,10 @@
               </div>
             <% end %>
 
+            <div class="flex items-center mx-3 p-3 rounded-lg gap-1">
             <% if category[:clickable] != false %>
               <%= link_to transactions_path(q: { categories: [category[:name]], start_date: period.date_range.first, end_date: period.date_range.last }),
-                  class: "flex items-center justify-between mx-3 p-3 rounded-lg cursor-pointer group gap-3",
+                  class: "flex items-center justify-between flex-1 min-w-0 cursor-pointer group gap-3",
                   data: {
                     turbo_frame: "_top",
                     turbo_prefetch: false,
@@ -101,12 +104,35 @@
                 <%= category_content %>
               <% end %>
             <% else %>
-              <div class="flex items-center justify-between mx-3 p-3 rounded-lg group gap-3"
+              <div class="flex items-center justify-between flex-1 min-w-0 group gap-3"
                   data-category-id="<%= category[:id] %>"
                   data-action="mouseenter->donut-chart#highlightSegment mouseleave->donut-chart#unhighlightSegment">
                 <%= category_content %>
               </div>
             <% end %>
+            <% if children.any? %>
+              <button type="button" class="p-2 flex-shrink-0 text-secondary hover:text-primary" data-action="category-disclosure#toggle">
+                <%= icon "chevron-down", size: "sm", color: "current", data: { category_disclosure_target: "chevron" }, class: "transition-transform" %>
+              </button>
+            <% end %>
+            </div>
+
+            <% if children.any? %>
+              <div class="hidden pl-14 pr-3 pb-2 space-y-1" data-category-disclosure-target="content">
+                <% children.each do |child| %>
+                  <%= link_to transactions_path(q: { categories: [child[:name]], start_date: period.date_range.first, end_date: period.date_range.last }),
+                      class: "flex items-center justify-between p-2 rounded-lg hover:bg-surface-hover cursor-pointer gap-3",
+                      data: { turbo_frame: "_top", turbo_prefetch: false } do %>
+                    <span class="text-sm text-secondary truncate"><%= child[:name] %></span>
+                    <span class="flex items-center gap-4 flex-shrink-0 text-right">
+                      <span class="text-sm font-medium text-primary whitespace-nowrap privacy-sensitive"><%= format_money Money.new(child[:amount], child[:currency]) %></span>
+                      <span class="text-sm text-secondary whitespace-nowrap w-10 @2xl:w-15 privacy-sensitive"><%= child[:percentage] %>%</span>
+                    </span>
+                  <% end %>
+                <% end %>
+              </div>
+            <% end %>
+            </div>
             <% if idx < outflows_data[:categories].size - 1 %>
               <%= render "shared/ruler", classes: "mx-3 @2xl:mx-4" %>
             <% end %>
