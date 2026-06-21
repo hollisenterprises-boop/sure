@@ -1,0 +1,124 @@
+# ===========================================================================
+# Staging Docker Compose file
+# ===========================================================================
+#
+# Purpose:
+# --------
+#
+# An isolated staging stack for testing on the same machine as production.
+# It uses its own database, redis, volumes, and network so it never touches
+# the production stack defined in compose.example.yml.
+#
+# IMPORTANT - SECRET_KEY_BASE:
+# -----------------------------
+# Sure derives its Active Record encryption keys (primary key, deterministic
+# key, key derivation salt) from SECRET_KEY_BASE when none are explicitly
+# set (see config/initializers/active_record_encryption.rb). If you restore
+# a copy of the production database into staging, SECRET_KEY_BASE here MUST
+# be set to the exact same value used in production, or encrypted columns
+# will fail to decrypt. There is intentionally no default fallback for this
+# variable below - set it in your .env file.
+#
+# Watchtower:
+# -----------
+# This stack does not run its own watchtower service. The web and worker
+# services are labeled so the existing production watchtower instance
+# (already watching this host) will pick up and update them too.
+#
+
+x-db-env: &db_env
+  POSTGRES_USER: ${POSTGRES_USER:-sure_user}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sure_password}
+  POSTGRES_DB: ${POSTGRES_DB:-sure_production}
+
+x-rails-env: &rails_env
+  <<: *db_env
+  SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Set this to match production's SECRET_KEY_BASE in .env}
+  SELF_HOSTED: "true"
+  RAILS_FORCE_SSL: "false"
+  RAILS_ASSUME_SSL: "false"
+  DB_HOST: db
+  DB_PORT: 5432
+  REDIS_URL: redis://redis:6379/1
+  OPENAI_ACCESS_TOKEN: ${OPENAI_ACCESS_TOKEN}
+
+services:
+  web:
+    image: ghcr.io/hollisenterprises-boop/sure:staging
+    volumes:
+      - app-storage-staging:/rails/storage
+    ports:
+      - ${STAGING_PORT:-3001}:3000
+    restart: unless-stopped
+    environment:
+      <<: *rails_env
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    networks:
+      - sure_staging_net
+
+  worker:
+    image: ghcr.io/hollisenterprises-boop/sure:staging
+    command: bundle exec sidekiq
+    volumes:
+      - app-storage-staging:/rails/storage
+    restart: unless-stopped
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      <<: *rails_env
+    networks:
+      - sure_staging_net
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    volumes:
+      - postgres-data-staging:/var/lib/postgresql/data
+    environment:
+      <<: *db_env
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sure_staging_net
+
+  redis:
+    image: redis:latest
+    restart: unless-stopped
+    volumes:
+      - redis-data-staging:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sure_staging_net
+
+volumes:
+  app-storage-staging:
+  postgres-data-staging:
+  redis-data-staging:
+
+networks:
+  sure_staging_net:
+    driver: bridge
