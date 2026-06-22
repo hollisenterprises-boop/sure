@@ -58,10 +58,19 @@
             </div>
           </div>
         </div>
-        <div class="py-3 shadow-border-xs rounded-lg bg-container font-medium text-sm max-w-full">
-          <% outflows_data[:categories].each_with_index do |category, idx| %>
+        <div class="py-3 shadow-border-xs rounded-lg bg-container font-medium text-sm max-w-full" data-controller="outflows-sortable">
+          <% outflows_data[:categories].each do |category| %>
             <% children = category[:children] || [] %>
             <% income_children = category[:income_children] || [] %>
+            <div
+              draggable="true"
+              data-outflows-sortable-target="section"
+              data-section-key="<%= category[:id] %>"
+              data-action="dragstart->outflows-sortable#dragStart dragend->outflows-sortable#dragEnd dragover->outflows-sortable#dragOver drop->outflows-sortable#drop keydown->outflows-sortable#handleKeyDown"
+              tabindex="0"
+              aria-grabbed="false"
+              class="[&:not(:last-child)]:border-b [&:not(:last-child)]:border-divider"
+            >
             <div<% if children.any? || income_children.any? %> data-controller="category-disclosure"<% end %>>
             <%
               category_content = capture do
@@ -93,6 +102,9 @@
             <% end %>
 
             <div class="flex items-center mx-3 p-3 rounded-lg gap-1">
+            <button type="button" class="cursor-grab active:cursor-grabbing shrink-0 text-secondary" aria-label="<%= t(".reorder_category") %>">
+              <%= icon "grip-vertical", size: "sm" %>
+            </button>
             <% if category[:clickable] != false %>
               <%= link_to transactions_path(q: { categories: [category[:name]], start_date: period.date_range.first, end_date: period.date_range.last }),
                   class: "flex items-center justify-between flex-1 min-w-0 cursor-pointer group gap-3",
@@ -147,9 +159,7 @@
               </div>
             <% end %>
             </div>
-            <% if idx < outflows_data[:categories].size - 1 %>
-              <%= render "shared/ruler", classes: "mx-3 @2xl:mx-4" %>
-            <% end %>
+            </div>
           <% end %>
         </div>
       </div>
