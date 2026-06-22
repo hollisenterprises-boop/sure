@@ -9,23 +9,30 @@
   </div>
 
   <div class="shadow-border-xs rounded-lg bg-container">
-    <div class="overflow-hidden rounded-lg">
-      <% category_groups.each_with_index do |group, idx| %>
-        <%= render "categories/category",
-                   category: group.category,
-                   subcategories: group.subcategories,
-                   has_transactions: category_ids_with_transactions&.key?(group.category.id) %>
-
-        <% group.subcategories.each do |subcategory| %>
+    <div class="overflow-hidden rounded-lg" data-controller="categories-sortable">
+      <% category_groups.each do |group| %>
+        <div
+          draggable="true"
+          data-categories-sortable-target="section"
+          data-section-key="<%= group.category.id %>"
+          data-action="dragstart->categories-sortable#dragStart dragend->categories-sortable#dragEnd dragover->categories-sortable#dragOver drop->categories-sortable#drop keydown->categories-sortable#handleKeyDown"
+          tabindex="0"
+          aria-grabbed="false"
+          class="[&:not(:last-child)]:border-b [&:not(:last-child)]:border-divider"
+        >
           <%= render "categories/category",
-                     category: subcategory,
-                     subcategories: [],
-                     has_transactions: category_ids_with_transactions&.key?(subcategory.id) %>
-        <% end %>
+                     category: group.category,
+                     subcategories: group.subcategories,
+                     has_transactions: category_ids_with_transactions&.key?(group.category.id),
+                     draggable: true %>
 
-        <% unless idx == category_groups.count - 1 %>
-          <%= render "shared/ruler" %>
-        <% end %>
+          <% group.subcategories.each do |subcategory| %>
+            <%= render "categories/category",
+                       category: subcategory,
+                       subcategories: [],
+                       has_transactions: category_ids_with_transactions&.key?(subcategory.id) %>
+          <% end %>
+        </div>
       <% end %>
     </div>
   </div>

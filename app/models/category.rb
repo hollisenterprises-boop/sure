@@ -15,8 +15,10 @@ class Category < ApplicationRecord
   validate :category_level_limit
 
   before_save :inherit_color_from_parent
+  before_create :set_default_position
 
   scope :alphabetically, -> { order(:name) }
+  scope :ordered, -> { order(:position) }
   scope :alphabetically_by_hierarchy, -> {
     left_joins(:parent)
       .order(Arel.sql("COALESCE(parents_categories.name, categories.name)"))
@@ -138,6 +140,19 @@ class Category < ApplicationRecord
         trees tree-palm trending-up trophy truck tv umbrella undo-2 unplug users utensils
         video wallet wallet-cards waves wifi wine wrench zap
       ]
+    end
+
+    # Persists a new top-level ordering for the given family's root categories.
+    # Subcategories keep their existing position and simply move along with
+    # their parent since they're always rendered as part of the parent's group.
+    def reorder_roots!(family:, ordered_ids:)
+      roots_by_id = family.categories.roots.where(id: ordered_ids).index_by(&:id)
+
+      transaction do
+        ordered_ids.each_with_index do |id, index|
+          roots_by_id[id]&.update!(position: index)
+        end
+      end
     end
 
     def bootstrap!
@@ -266,6 +281,11 @@ class Category < ApplicationRecord
   end
 
   private
+    def set_default_position
+      siblings = family.categories.where(parent_id: parent_id)
+      self.position = (siblings.maximum(:position) || -1) + 1
+    end
+
     def category_level_limit
       if (subcategory? && parent.subcategory?) || (parent? && subcategory?)
         errors.add(:parent, "can't have more than 2 levels of subcategories")

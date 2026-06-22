@@ -4,11 +4,19 @@ class CategoriesController < ApplicationController
   before_action :set_transaction, only: :create
 
   def index
-    @categories = Current.family.categories.alphabetically.to_a
+    @categories = Current.family.categories.ordered.to_a
     @category_groups = Category::Group.for(@categories)
     @category_ids_with_transactions = category_ids_with_transactions(@categories)
 
     render layout: "settings"
+  end
+
+  def reorder
+    Category.reorder_roots!(family: Current.family, ordered_ids: reorder_params)
+
+    head :ok
+  rescue ActiveRecord::RecordInvalid => e
+    render json: { error: record_error_message(e) }, status: :unprocessable_entity
   end
 
   def new
@@ -123,6 +131,10 @@ class CategoriesController < ApplicationController
 
     def category_merge_params
       params.permit(:target_id, source_ids: [])
+    end
+
+    def reorder_params
+      params.permit(ordered_ids: []).fetch(:ordered_ids, [])
     end
 
     def category_ids_with_transactions(categories)

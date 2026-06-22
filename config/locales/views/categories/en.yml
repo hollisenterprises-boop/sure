@@ -5,6 +5,7 @@ en:
       success: Default categories created successfully
     category:
       delete: Delete category
+      drag_handle: Reorder category
       edit: Edit category
     create:
       success: Category created successfully
