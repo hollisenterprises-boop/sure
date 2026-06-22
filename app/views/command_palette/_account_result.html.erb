@@ -1,0 +1,10 @@
+<%# locals: (account:) %>
+<%= link_to account_path(account),
+    data: { turbo_frame: "_top", action: "click->command-palette#close", command_palette_target: "resultLink" },
+    class: "flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-surface-hover focus-visible:bg-surface-hover outline-none" do %>
+  <%= render DS::FilledIcon.new(variant: :text, text: account.name, size: "sm", rounded: true) %>
+  <div class="min-w-0">
+    <p class="text-sm font-medium text-primary truncate"><%= account.name %></p>
+    <p class="text-xs text-secondary"><%= account.accountable_type.titleize %></p>
+  </div>
+<% end %>
