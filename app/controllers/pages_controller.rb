@@ -99,6 +99,7 @@ class PagesController < ApplicationController
         permitted["collapsed_sections"] = prefs[:collapsed_sections].to_unsafe_h if prefs[:collapsed_sections].respond_to?(:to_unsafe_h)
         permitted["section_order"] = prefs[:section_order] if prefs[:section_order].is_a?(Array)
         permitted["dashboard_section_layout"] = prefs[:dashboard_section_layout].to_unsafe_h if prefs[:dashboard_section_layout].respond_to?(:to_unsafe_h)
+        permitted["outflows_category_order"] = prefs[:outflows_category_order] if prefs[:outflows_category_order].is_a?(Array)
       end
     end
 
@@ -391,7 +392,7 @@ class PagesController < ApplicationController
           children += zero_children
 
           {
-            id: ct.category.id,
+            id: ct.category.id || ct.category.name,
             name: ct.category.name,
             amount: ct.total.to_f.round(2),
             currency: ct.currency,
@@ -404,7 +405,21 @@ class PagesController < ApplicationController
           }
         end
 
+      categories = apply_outflows_category_order(categories)
+
       { categories: categories, total: total.to_f.round(2), currency: net_totals.currency, currency_symbol: currency_symbol }
+    end
+
+    # Applies the user's saved drag order (if any) to the outflows category
+    # list, appending any categories not yet present in the saved order
+    # (e.g. a category created after the order was last saved) at the end.
+    def apply_outflows_category_order(categories)
+      order = Current.user.outflows_category_order
+      return categories if order.blank?
+
+      by_id = categories.index_by { |c| c[:id].to_s }
+      ordered = order.filter_map { |id| by_id.delete(id.to_s) }
+      ordered + by_id.values
     end
 
     def build_donut_sub_node(sub, ct, total)

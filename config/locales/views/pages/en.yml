@@ -90,6 +90,7 @@ en:
         categories: "Categories"
         value: "Value"
         weight: "Weight"
+        reorder_category: "Reorder category"
       investment_summary:
         title: "Investments"
         total_return: "Total Return"

@@ -314,6 +314,13 @@ class User < ApplicationRecord
     preferences&.[]("section_order") || default_dashboard_section_order
   end
 
+  # Saved drag order for the homepage Outflows breakdown list. Returns nil
+  # when the user hasn't customized it, so callers fall back to the default
+  # value-based sort.
+  def outflows_category_order
+    preferences&.[]("outflows_category_order")
+  end
+
   # Per-widget height preset override ("compact" | "auto" | "tall"); nil = use default.
   def dashboard_section_height(section_key)
     preferences&.dig("dashboard_section_layout", section_key, "height")
