@@ -44,17 +44,40 @@ permissions:
   packages: write
 
 jobs:
+  # PR checks already gate everything merged to main, so re-running the full
+  # suite (incl. ~10min of system tests) on every push to main just duplicates
+  # that work. Only re-run CI for tags/schedule/manual dispatch, where the
+  # commit may not have gone through a PR.
   ci:
+    if: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')) }}
     uses: ./.github/workflows/ci.yml
+
+  setup:
+    name: Determine build platforms
+    runs-on: ubuntu-latest
+    outputs:
+      platforms: ${{ steps.set.outputs.platforms }}
+    steps:
+      - id: set
+        run: |
+          # Plain pushes to main only need to support this self-hosted amd64
+          # deployment, so skip the slower arm64 leg there. Tags/schedule/
+          # manual dispatch still build both for the public multi-arch image.
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == refs/heads/* ]]; then
+            echo 'platforms=["amd64"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'platforms=["amd64","arm64"]' >> "$GITHUB_OUTPUT"
+          fi
 
   build:
     name: Build Docker image
-    needs: [ ci ]
+    needs: [ ci, setup ]
+    if: always() && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
 
     strategy:
       fail-fast: false
       matrix:
-        platform: [amd64, arm64]
+        platform: ${{ fromJson(needs.setup.outputs.platforms) }}
         include:
           - platform: amd64
             runs-on: ubuntu-24.04
@@ -169,7 +192,7 @@ jobs:
   merge:
     name: Merge multi-arch manifest & push multi-arch tag
     if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'schedule' || github.event.inputs.push }}
-    needs: [build]
+    needs: [build, setup]
 
     timeout-minutes: 60
     runs-on: 'ubuntu-24.04'
@@ -209,8 +232,8 @@ jobs:
           done <<< "${TAGS}"
 
           image_args=()
-          for PLATFORM in amd64 arm64; do
-            image_args+=("${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:$(<"${DIGESTS_DIR}/digest-${PLATFORM}")")
+          for digest_file in "${DIGESTS_DIR}"/digest-*; do
+            image_args+=("${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:$(<"${digest_file}")")
           done
 
           annotations=(
