@@ -379,6 +379,17 @@ class PagesController < ApplicationController
             .sort_by { |s| -s[:total] }
             .map { |s| build_donut_sub_node(s, ct, total) }
 
+          # Sibling subcategories with no activity this period (e.g. a
+          # property still under construction) are otherwise invisible —
+          # surface them at $0 so the full category structure stays visible.
+          covered_ids = (children + income_children).map { |c| c[:id] }
+          zero_children = ct.category.subcategories
+            .reject { |sub| covered_ids.include?(sub.id) }
+            .sort_by(&:name)
+            .map { |sub| build_zero_donut_sub_node(sub, ct) }
+
+          children += zero_children
+
           {
             id: ct.category.id,
             name: ct.category.name,
@@ -405,6 +416,18 @@ class PagesController < ApplicationController
         percentage: total.zero? ? 0 : (sub[:total].to_f / total * 100).round(1),
         color: sub[:category].color.presence || ct.category.color.presence || Category::UNCATEGORIZED_COLOR,
         icon: sub[:category].lucide_icon
+      }
+    end
+
+    def build_zero_donut_sub_node(sub_category, ct)
+      {
+        id: sub_category.id,
+        name: sub_category.name,
+        amount: 0.0,
+        currency: ct.currency,
+        percentage: 0.0,
+        color: sub_category.color.presence || ct.category.color.presence || Category::UNCATEGORIZED_COLOR,
+        icon: sub_category.lucide_icon
       }
     end
 

@@ -124,6 +124,30 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert sankey_data.fetch("nodes").any? { |node| node.fetch("id").start_with?("expense_") }
   end
 
+  test "dashboard outflows donut includes subcategories with no transactions yet" do
+    parent_category = @family.categories.create!(name: "Real Estate", color: "#FF5733")
+    active_sub = @family.categories.create!(name: "Mortgage Interest", parent: parent_category, color: "#33FF57")
+    empty_sub = @family.categories.create!(name: "Council Rates", parent: parent_category, color: "#3357FF")
+
+    create_transaction(account: @family.accounts.first, name: "Mortgage payment", amount: 100, category: active_sub)
+
+    get root_path
+    assert_response :ok
+
+    donut = css_select("[data-controller='donut-chart']").first
+    segments = JSON.parse(donut["data-donut-chart-segments-value"])
+    real_estate = segments.find { |s| s["name"] == "Real Estate" }
+    assert real_estate.present?
+
+    empty_child = real_estate["children"].find { |c| c["name"] == "Council Rates" }
+    assert empty_child.present?
+    assert_equal 0.0, empty_child["amount"]
+
+    active_child = real_estate["children"].find { |c| c["name"] == "Mortgage Interest" }
+    assert active_child.present?
+    assert_equal 100.0, active_child["amount"]
+  end
+
   test "changelog" do
     VCR.use_cassette("git_repository_provider/fetch_latest_release_notes") do
       get changelog_path
