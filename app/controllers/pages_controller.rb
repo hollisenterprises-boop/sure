@@ -42,6 +42,12 @@ class PagesController < ApplicationController
     @cashflow_sankey_data = build_cashflow_sankey_data(net_totals, income_totals, expense_totals, family_currency)
     @outflows_data = build_outflows_donut_data(net_totals, expense_totals, income_totals)
 
+    @uncategorized_count = Transaction.visible
+                                      .where(category_id: nil)
+                                      .where.not(kind: Transaction::TRANSFER_KINDS)
+                                      .where(entries: { account_id: @accounts.select(:id) })
+                                      .count
+
     @dashboard_sections = build_dashboard_sections
 
     @breadcrumbs = [ [ t("breadcrumbs.home"), root_path ], [ t("breadcrumbs.dashboard"), nil ] ]

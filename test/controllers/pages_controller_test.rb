@@ -14,6 +14,33 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
   end
 
+  test "dashboard shows uncategorized nudge with the correct count" do
+    create_transaction(account: @family.accounts.first, name: "Needs a category", amount: 30)
+
+    expected_count = Transaction.visible
+                                .where(category_id: nil)
+                                .where.not(kind: Transaction::TRANSFER_KINDS)
+                                .where(entries: { account_id: @family.accounts.select(:id) })
+                                .count
+
+    get root_path
+    assert_response :ok
+    assert_match("#{expected_count} transactions need a category", response.body)
+  end
+
+  test "dashboard hides uncategorized nudge when nothing is uncategorized" do
+    category = @family.categories.create!(name: "Test Always Categorized", color: "#FF5733")
+    Transaction.visible
+              .where(category_id: nil)
+              .where.not(kind: Transaction::TRANSFER_KINDS)
+              .where(entries: { account_id: @family.accounts.select(:id) })
+              .update_all(category_id: category.id)
+
+    get root_path
+    assert_response :ok
+    assert_no_match(/transactions need a category/, response.body)
+  end
+
   test "update_preferences persists dashboard section layout height" do
     patch "/dashboard/preferences", params: {
       preferences: { dashboard_section_layout: { net_worth_chart: { height: "compact" } } }
