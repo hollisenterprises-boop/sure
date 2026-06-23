@@ -27,6 +27,22 @@
         ) %>
     </div>
   </div>
+
+  <% if @uncategorized_count.to_i > 0 %>
+    <%= link_to transactions_path(q: { categories: [ "Uncategorized" ] }),
+        class: "flex items-center gap-3 px-4 py-3 mb-6 rounded-xl bg-container shadow-border-xs hover:bg-surface-hover transition-colors group" do %>
+      <span class="relative flex items-center justify-center w-9 h-9 rounded-full bg-container-inset shrink-0">
+        <%= icon("sparkles", size: "sm", color: "info") %>
+      </span>
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-primary">
+          <%= t("pages.dashboard.uncategorized_nudge.title", count: @uncategorized_count) %>
+        </p>
+        <p class="text-sm text-secondary"><%= t("pages.dashboard.uncategorized_nudge.subtitle") %></p>
+      </div>
+      <%= icon("chevron-right", size: "sm", class: "ml-auto shrink-0 text-secondary group-hover:text-primary transition-colors") %>
+    <% end %>
+  <% end %>
 <% end %>
 
 <%= turbo_frame_tag "dashboard_sections", target: "_top" do %>

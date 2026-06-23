@@ -53,6 +53,9 @@ en:
         compact: "Compact"
         auto: "Auto"
         tall: "Tall"
+      uncategorized_nudge:
+        title: "%{count} transactions need a category"
+        subtitle: "Categorize them to unlock more accurate reports and budgets"
       net_worth_chart:
         data_not_available: Data not available for the selected period
         title: Net Worth
