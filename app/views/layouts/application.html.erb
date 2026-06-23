@@ -69,6 +69,7 @@ end %>
           <%= icon("eye-off", size: "sm", data: { privacy_mode_target: "iconOff" }) %>
           <%= icon("eye", size: "sm", class: "hidden", data: { privacy_mode_target: "iconOn" }) %>
         </button>
+        <%= render "layouts/shared/alerts_menu" unless intro_mode %>
         <%= render "users/user_menu", user: Current.user, placement: "bottom-end", offset: 12, intro_mode: intro_mode %>
       </div>
     </nav>
@@ -167,6 +168,8 @@ end %>
               <%= icon("eye-off", size: "sm", data: { privacy_mode_target: "iconOff" }) %>
               <%= icon("eye", size: "sm", class: "hidden", data: { privacy_mode_target: "iconOn" }) %>
             </button>
+
+            <%= render "layouts/shared/alerts_menu" %>
 
             <%= icon("panel-right", as_button: true, data: { action: "app-layout#toggleRightSidebar" }) %>
           </div>

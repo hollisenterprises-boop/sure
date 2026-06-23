@@ -1,0 +1,36 @@
+<% alerts = current_family_alerts %>
+
+<%= render DS::Popover.new(variant: "button", placement: "bottom-end", offset: 12) do |popover| %>
+  <% popover.with_button(
+       class: "inline-flex items-center justify-center w-9 h-9 pointer-coarse:w-11 pointer-coarse:h-11 rounded-lg text-secondary hover:text-primary hover:bg-container-inset-hover transition-colors focus-ring relative",
+       title: t("layouts.shared.alerts_menu.label"),
+       aria: { label: t("layouts.shared.alerts_menu.label") }
+     ) do %>
+    <%= icon("bell", size: "sm") %>
+    <% if alerts.any? %>
+      <span class="absolute top-1.5 right-1.5">
+        <%= render DS::Pill.new(tone: :amber, dot_only: true, title: t("layouts.shared.alerts_menu.has_alerts")) %>
+      </span>
+    <% end %>
+  <% end %>
+
+  <% popover.with_custom_content do %>
+    <div class="w-72 max-h-80 overflow-y-auto p-2">
+      <% if alerts.empty? %>
+        <p class="text-sm text-secondary text-center py-6"><%= t("layouts.shared.alerts_menu.no_alerts") %></p>
+      <% else %>
+        <div class="space-y-0.5">
+          <% alerts.each do |alert| %>
+            <%= link_to alert.path, class: "flex items-start gap-2 px-2 py-2 rounded-lg hover:bg-surface-hover" do %>
+              <%= icon(alert.icon, size: "sm", color: "warning", class: "mt-0.5 shrink-0") %>
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-primary"><%= alert.title %></p>
+                <p class="text-xs text-secondary"><%= alert.body %></p>
+              </div>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+<% end %>

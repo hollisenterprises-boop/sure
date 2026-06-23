@@ -17,6 +17,10 @@ en:
       sign_in: Sign in
       sign_up: Create account
     shared:
+      alerts_menu:
+        label: Alerts
+        has_alerts: You have new alerts
+        no_alerts: "You're all caught up"
       footer:
         privacy_policy: Privacy Policy
         terms_of_service: Terms of Service
