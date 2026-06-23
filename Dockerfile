@@ -14,10 +14,14 @@ RUN apt-get update -qq \
 
 # Set production environment
 ARG BUILD_COMMIT_SHA
+# Overridable so local tooling (bin/deploy_locally) can build a throwaway
+# --target build image that still has rubocop/brakeman for local checks,
+# without changing the default (production) image at all.
+ARG BUNDLE_WITHOUT_GROUPS="development"
 ENV RAILS_ENV="production" \
     BUNDLE_DEPLOYMENT="1" \
     BUNDLE_PATH="/usr/local/bundle" \
-    BUNDLE_WITHOUT="development" \
+    BUNDLE_WITHOUT="${BUNDLE_WITHOUT_GROUPS}" \
     BUILD_COMMIT_SHA=${BUILD_COMMIT_SHA}
 
 # Throw-away build stage to reduce size of final image

@@ -1,0 +1,223 @@
+#!/usr/bin/env bash
+# Local deploy orchestrator: runs correctness checks, builds the Docker
+# image, redeploys the local containers, then VERIFIES the new commit is
+# actually running before declaring success. Rolls back automatically if
+# verification fails. Writes each step to tmp/deploy_runs.jsonl as it goes,
+# so bin/deploy_dashboard can show progress live, not just a final summary.
+#
+# Usage:
+#   bin/deploy_locally                  # rubocop + brakeman + JS lint, then build/deploy/verify
+#   bin/deploy_locally --with-tests     # also spin up throwaway Postgres/Redis and run bin/rails test
+#   bin/deploy_locally --skip-checks    # skip all checks, just build/deploy/verify
+#
+# Checks never touch the real database -- the production container shares
+# one Postgres instance with your real financial data, so "tests" spin up
+# their own throwaway Postgres/Redis containers on an isolated network and
+# tear them down afterward, the same way CI does.
+
+set -uo pipefail
+
+APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+COMPOSE_PROJECT="ashho"
+WEB_CONTAINER="ashho-web-1"
+IMAGE="ghcr.io/hollisenterprises-boop/sure:latest"
+CHECKS_IMAGE="sure-checks:local"
+RUNS_LOG="$APP_ROOT/tmp/deploy_runs.jsonl"
+RUN_ID="$(date +%s)-$$"
+
+WITH_TESTS=false
+SKIP_CHECKS=false
+for arg in "$@"; do
+  case "$arg" in
+    --with-tests) WITH_TESTS=true ;;
+    --skip-checks) SKIP_CHECKS=true ;;
+  esac
+done
+
+mkdir -p "$(dirname "$RUNS_LOG")"
+cd "$APP_ROOT"
+
+SHA="$(git rev-parse HEAD)"
+PREVIOUS_IMAGE_ID=""
+
+STEP_NAMES=()
+STEP_STATUSES=()
+STEP_DURATIONS=()
+STEP_ERRORS=()
+
+json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="$(printf '%s' "$s" | tr '\n' ' ')"
+  printf '%s' "$s"
+}
+
+write_run() {
+  local status="$1"
+  local tmp="${RUNS_LOG}.tmp"
+  : > "$tmp"
+  if [[ -f "$RUNS_LOG" ]]; then
+    grep -v "\"run_id\":\"$RUN_ID\"" "$RUNS_LOG" >> "$tmp" 2>/dev/null || true
+  fi
+  {
+    printf '{"run_id":"%s","commit_sha":"%s","updated_at":"%s","status":"%s","steps":[' \
+      "$RUN_ID" "$SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$status"
+    local i n=${#STEP_NAMES[@]}
+    for ((i = 0; i < n; i++)); do
+      [[ $i -gt 0 ]] && printf ','
+      printf '{"name":"%s","status":"%s","duration_s":%s' \
+        "$(json_escape "${STEP_NAMES[$i]}")" "${STEP_STATUSES[$i]}" "${STEP_DURATIONS[$i]:-0}"
+      if [[ -n "${STEP_ERRORS[$i]:-}" ]]; then
+        printf ',"error":"%s"' "$(json_escape "${STEP_ERRORS[$i]}")"
+      fi
+      printf '}'
+    done
+    printf ']}\n'
+  } >> "$tmp"
+  mv "$tmp" "$RUNS_LOG"
+}
+
+run_step() {
+  local name="$1"
+  shift
+  printf '\033[1m==> %s...\033[0m ' "$name"
+  local start end dur idx out status
+  start=$(date +%s)
+  STEP_NAMES+=("$name")
+  STEP_STATUSES+=("running")
+  STEP_DURATIONS+=("0")
+  STEP_ERRORS+=("")
+  idx=$((${#STEP_NAMES[@]} - 1))
+  write_run "running"
+
+  out="$("$@" 2>&1)"
+  status=$?
+  end=$(date +%s)
+  dur=$((end - start))
+  STEP_DURATIONS[$idx]="$dur"
+
+  if [[ $status -eq 0 ]]; then
+    STEP_STATUSES[$idx]="passed"
+    printf '\033[32mdone (%ss)\033[0m\n' "$dur"
+    write_run "running"
+    return 0
+  else
+    STEP_STATUSES[$idx]="failed"
+    STEP_ERRORS[$idx]="$out"
+    printf '\033[31mFAILED (%ss)\033[0m\n' "$dur"
+    printf '%s\n' "$out"
+    write_run "failed"
+    return 1
+  fi
+}
+
+cleanup_check_containers() {
+  docker rm -f sure-checks-pg sure-checks-redis >/dev/null 2>&1 || true
+  docker network rm sure-checks-net >/dev/null 2>&1 || true
+}
+
+run_tests_isolated() {
+  # Throwaway credential for an isolated, ephemeral container that only
+  # ever exists for the duration of this function -- not a real secret.
+  local pg_password="postgres" # pipelock:ignore
+
+  cleanup_check_containers
+  docker network create sure-checks-net >/dev/null
+  docker run -d --rm --name sure-checks-pg --network sure-checks-net \
+    -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD="$pg_password" postgres:16 >/dev/null
+  docker run -d --rm --name sure-checks-redis --network sure-checks-net redis:latest >/dev/null
+
+  # Wait for Postgres to accept connections before handing off to Rails.
+  for _ in $(seq 1 30); do
+    docker exec sure-checks-pg pg_isready -U postgres >/dev/null 2>&1 && break
+    sleep 1
+  done
+
+  docker run --rm --network sure-checks-net \
+    -e RAILS_ENV=test \
+    -e DB_HOST=sure-checks-pg \
+    -e POSTGRES_USER=postgres \
+    -e POSTGRES_PASSWORD="$pg_password" \
+    -e POSTGRES_DB=sure_test \
+    -e REDIS_URL=redis://sure-checks-redis:6379 \
+    -e PLAID_CLIENT_ID=foo \
+    -e PLAID_SECRET=bar \
+    "$CHECKS_IMAGE" \
+    bash -c "bin/rails db:create db:schema:load >/dev/null && bin/rails test"
+  local status=$?
+  cleanup_check_containers
+  return $status
+}
+
+trap cleanup_check_containers EXIT
+
+echo "Deploying commit ${SHA:0:12} (run $RUN_ID)"
+
+if ! $SKIP_CHECKS; then
+  run_step "Build checks image" docker build --target build \
+    --build-arg BUNDLE_WITHOUT_GROUPS="" -t "$CHECKS_IMAGE" "$APP_ROOT" || exit 1
+  run_step "Lint (rubocop)" docker run --rm "$CHECKS_IMAGE" bin/rubocop -f github || exit 1
+  run_step "Security (brakeman)" docker run --rm "$CHECKS_IMAGE" bin/brakeman --no-pager || exit 1
+  if [[ -f "$APP_ROOT/node_modules/.bin/biome" || -d "$APP_ROOT/node_modules" ]]; then
+    run_step "Lint (JS)" npm run lint || exit 1
+  fi
+  if $WITH_TESTS; then
+    run_step "Unit tests (isolated DB)" run_tests_isolated || exit 1
+  fi
+fi
+
+PREVIOUS_IMAGE_ID="$(docker inspect "$WEB_CONTAINER" --format '{{.Image}}' 2>/dev/null || true)"
+STEP_NAMES+=("Capture rollback point")
+STEP_STATUSES+=("passed")
+STEP_DURATIONS+=("0")
+STEP_ERRORS+=("")
+write_run "running"
+
+run_step "Build image" docker build -t "$IMAGE" --build-arg BUILD_COMMIT_SHA="$SHA" "$APP_ROOT" || exit 1
+run_step "Deploy containers" docker compose -p "$COMPOSE_PROJECT" up -d --force-recreate web worker || exit 1
+
+verify_deployed_sha() {
+  local deployed=""
+  for _ in $(seq 1 10); do
+    deployed="$(docker exec "$WEB_CONTAINER" bin/rails runner "puts Sure.commit_sha" 2>/dev/null | tail -n 1 | tr -d '\r')"
+    [[ "$deployed" == "$SHA" ]] && { echo "$deployed"; return 0; }
+    sleep 2
+  done
+  echo "deployed commit '$deployed' does not match built commit '$SHA'" >&2
+  return 1
+}
+
+if run_step "Verify deployed commit" verify_deployed_sha; then
+  write_run "success"
+  echo
+  printf '\033[1m\033[32mDeploy verified: %s is running commit %s\033[0m\n' "$WEB_CONTAINER" "${SHA:0:12}"
+  exit 0
+fi
+
+echo
+printf '\033[33mDeploy failed -- attempting rollback...\033[0m\n'
+
+if [[ -n "$PREVIOUS_IMAGE_ID" ]] && docker image inspect "$PREVIOUS_IMAGE_ID" >/dev/null 2>&1; then
+  STEP_NAMES+=("Rollback")
+  STEP_STATUSES+=("running")
+  STEP_DURATIONS+=("0")
+  STEP_ERRORS+=("")
+  write_run "rolling_back"
+
+  if docker tag "$PREVIOUS_IMAGE_ID" "$IMAGE" \
+    && docker compose -p "$COMPOSE_PROJECT" up -d --force-recreate web worker; then
+    STEP_STATUSES[-1]="passed"
+    printf '\033[32mRolled back to previous image (%s)\033[0m\n' "${PREVIOUS_IMAGE_ID:0:12}"
+    write_run "rolled_back"
+  else
+    STEP_STATUSES[-1]="failed"
+    printf '\033[31mRollback also failed -- container may be in a bad state\033[0m\n'
+    write_run "rollback_failed"
+  fi
+else
+  printf '\033[31mNo valid previous image to roll back to (it may have been pruned) -- container may be in a bad state\033[0m\n'
+  write_run "failed"
+fi
+
+exit 1
