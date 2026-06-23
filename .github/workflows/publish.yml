@@ -191,7 +191,11 @@ jobs:
 
   merge:
     name: Merge multi-arch manifest & push multi-arch tag
-    if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'schedule' || github.event.inputs.push }}
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      needs.setup.result == 'success' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'schedule' || github.event.inputs.push)
     needs: [build, setup]
 
     timeout-minutes: 60
