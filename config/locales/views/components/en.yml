@@ -1,6 +1,11 @@
 ---
 en:
   UI:
+    insights:
+      category_increase: "%{category} spending is up %{percent}% vs last month (now %{amount})"
+      category_decrease: "%{category} spending is down %{percent}% vs last month (now %{amount})"
+      overall_expense_increase: "Total spending is up %{percent}% vs last month"
+      overall_expense_decrease: "Total spending is down %{percent}% vs last month"
     alerts:
       low_balance:
         title: "Low balance: %{account}"
