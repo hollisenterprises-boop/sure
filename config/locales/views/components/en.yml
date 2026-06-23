@@ -1,6 +1,13 @@
 ---
 en:
   UI:
+    alerts:
+      low_balance:
+        title: "Low balance: %{account}"
+        body: "Balance is down to %{balance}"
+      budget_overage:
+        title: "Over budget: %{category}"
+        body: "%{percent}% of this month's budget spent"
     command_palette:
       placeholder: "Search accounts, transactions, settings..."
       prompt: "Start typing to search"
