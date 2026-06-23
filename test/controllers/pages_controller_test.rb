@@ -41,6 +41,28 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/transactions need a category/, response.body)
   end
 
+  test "dashboard shows upcoming recurring transactions within the next two weeks" do
+    get root_path
+    assert_response :ok
+    assert_match(/Netflix/, response.body)
+  end
+
+  test "dashboard excludes recurring transactions that are overdue" do
+    recurring_transactions(:netflix_subscription).update!(next_expected_date: 2.days.ago.to_date)
+
+    get root_path
+    assert_response :ok
+    assert_no_match(/Netflix/, response.body)
+  end
+
+  test "dashboard excludes inactive recurring transactions" do
+    recurring_transactions(:netflix_subscription).update!(status: "inactive")
+
+    get root_path
+    assert_response :ok
+    assert_no_match(/Netflix/, response.body)
+  end
+
   test "update_preferences persists dashboard section layout height" do
     patch "/dashboard/preferences", params: {
       preferences: { dashboard_section_layout: { net_worth_chart: { height: "compact" } } }

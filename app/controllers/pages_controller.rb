@@ -8,12 +8,15 @@ class PagesController < ApplicationController
   #               false for content-sized widgets (tables, stat grids)
   #   min_height: floor in px
   DASHBOARD_SECTION_LAYOUTS = {
-    "cashflow_sankey"    => { col_span: "full",   grow: false, min_height: 384, width_toggle: true },
-    "outflows_donut"     => { col_span: "single", grow: false, min_height: 0 },
-    "investment_summary" => { col_span: "single", grow: false, min_height: 0, width_toggle: true },
-    "net_worth_chart"    => { col_span: "single", grow: true,  min_height: 208, width_toggle: true },
-    "balance_sheet"      => { col_span: "single", grow: false, min_height: 0, width_toggle: true }
+    "cashflow_sankey"     => { col_span: "full",   grow: false, min_height: 384, width_toggle: true },
+    "outflows_donut"      => { col_span: "single", grow: false, min_height: 0 },
+    "investment_summary"  => { col_span: "single", grow: false, min_height: 0, width_toggle: true },
+    "net_worth_chart"     => { col_span: "single", grow: true,  min_height: 208, width_toggle: true },
+    "balance_sheet"       => { col_span: "single", grow: false, min_height: 0, width_toggle: true },
+    "upcoming_recurring"  => { col_span: "single", grow: false, min_height: 0 }
   }.freeze
+
+  UPCOMING_RECURRING_WINDOW = 2.weeks
 
   # Selectable height presets (px) for grow widgets.
   DASHBOARD_HEIGHT_PRESETS = { "compact" => 208, "auto" => 288, "tall" => 416 }.freeze
@@ -47,6 +50,13 @@ class PagesController < ApplicationController
                                       .where.not(kind: Transaction::TRANSFER_KINDS)
                                       .where(entries: { account_id: @accounts.select(:id) })
                                       .count
+
+    @upcoming_recurring = Current.family.recurring_transactions
+                                  .accessible_by(Current.user)
+                                  .active
+                                  .where(next_expected_date: Date.current..UPCOMING_RECURRING_WINDOW.from_now.to_date)
+                                  .includes(:merchant)
+                                  .order(:next_expected_date)
 
     @dashboard_sections = build_dashboard_sections
 
@@ -153,6 +163,15 @@ class PagesController < ApplicationController
           partial: "pages/dashboard/balance_sheet",
           layout: section_layout("balance_sheet"),
           locals: { balance_sheet: @balance_sheet },
+          visible: @accounts.any?,
+          collapsible: true
+        },
+        {
+          key: "upcoming_recurring",
+          title: "pages.dashboard.upcoming_recurring.title",
+          partial: "pages/dashboard/upcoming_recurring",
+          layout: section_layout("upcoming_recurring"),
+          locals: { upcoming_recurring: @upcoming_recurring },
           visible: @accounts.any?,
           collapsible: true
         }
