@@ -129,6 +129,13 @@ jobs:
                 BASE_CONFIG+=$'\n'"type=raw,value=stable"
               fi
             fi
+          elif [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == refs/heads/main ]]; then
+            # Plain pushes to main never matched the schedule/tag branches
+            # above, so :latest was NEVER being re-tagged here -- only the
+            # now-deleted docker-publish.yml workflow did that. Restoring it
+            # here is what Watchtower (and anyone pulling :latest) actually
+            # depends on for ordinary merges to main.
+            BASE_CONFIG+=$'\n'"type=raw,value=latest"
           fi
           {
             echo 'TAGS_SPEC<<EOF'
