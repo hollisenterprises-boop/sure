@@ -74,6 +74,11 @@ en:
         classifications:
           asset: "Assets"
           liability: "Liabilities"
+      upcoming_recurring:
+        title: "Next two weeks"
+        subtitle: "Upcoming bills and subscriptions"
+        view_all: "View all"
+        no_upcoming_payments: "No upcoming payments"
       cashflow_sankey:
         title: "Cashflow"
         zoom_out: "Back to full cashflow"
