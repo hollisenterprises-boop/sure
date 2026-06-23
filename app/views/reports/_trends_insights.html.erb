@@ -1,4 +1,12 @@
 <div class="space-y-8">
+    <% if insights.present? %>
+      <div class="space-y-3">
+        <% insights.each do |insight| %>
+          <%= render DS::Alert.new(message: insight.text, variant: insight.tone.to_sym) %>
+        <% end %>
+      </div>
+    <% end %>
+
     <%# Month-over-Month Trends %>
     <div>
       <h3 class="text-lg font-medium mb-4">

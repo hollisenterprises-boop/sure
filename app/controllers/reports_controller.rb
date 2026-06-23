@@ -121,6 +121,15 @@ class ReportsController < ApplicationController
       # Calculate summary metrics
       @summary_metrics = build_summary_metrics
 
+      # Proactive insights (category spikes/drops, overall expense trend)
+      @insights = Insights::Generator.new(
+        current_category_totals: @current_expense_totals.category_totals,
+        previous_category_totals: @previous_expense_totals.category_totals,
+        income_change: @summary_metrics[:income_change],
+        expense_change: @summary_metrics[:expense_change],
+        currency: Current.family.currency
+      ).insights
+
       # Build trend data (last 6 months)
       @trends_data = build_trends_data(income_statement: @income_statement)
 
@@ -165,7 +174,7 @@ class ReportsController < ApplicationController
           key: "trends_insights",
           title: "reports.trends.title",
           partial: "reports/trends_insights",
-          locals: { trends_data: @trends_data },
+          locals: { trends_data: @trends_data, insights: @insights },
           visible: @has_accounts,
           collapsible: true
         },
