@@ -1,4 +1,4 @@
-<%# locals: (title:, categories:, category_groups: nil, category_ids_with_transactions: nil) %>
+<%# locals: (title:, categories:, category_groups: nil, category_ids_with_transactions: nil, budget_categories_by_category_id: nil) %>
 <% category_groups ||= Category::Group.for(categories) %>
 
 <div class="rounded-xl bg-container-inset space-y-1 p-1">
@@ -24,13 +24,15 @@
                      category: group.category,
                      subcategories: group.subcategories,
                      has_transactions: category_ids_with_transactions&.key?(group.category.id),
+                     budget_category: budget_categories_by_category_id&.dig(group.category.id),
                      draggable: true %>
 
           <% group.subcategories.each do |subcategory| %>
             <%= render "categories/category",
                        category: subcategory,
                        subcategories: [],
-                       has_transactions: category_ids_with_transactions&.key?(subcategory.id) %>
+                       has_transactions: category_ids_with_transactions&.key?(subcategory.id),
+                       budget_category: budget_categories_by_category_id&.dig(subcategory.id) %>
           <% end %>
         </div>
       <% end %>

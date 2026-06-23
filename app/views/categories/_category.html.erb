@@ -1,4 +1,4 @@
-<%# locals: (category:, subcategories: nil, has_transactions: nil, draggable: false) %>
+<%# locals: (category:, subcategories: nil, has_transactions: nil, budget_category: nil, draggable: false) %>
 <% subcategories ||= category.subcategories.to_a %>
 <% has_transactions = category.transactions.exists? if has_transactions.nil? %>
 
@@ -17,6 +17,17 @@
     <% end %>
 
     <%= render partial: "categories/badge", locals: { category: category } %>
+
+    <% if budget_category&.budgeted_spending.to_f > 0 %>
+      <div class="flex items-center gap-2 ml-auto pl-4 shrink-0 w-40">
+        <div class="grow h-1.5 rounded-full bg-surface-inset overflow-hidden">
+          <div class="h-full rounded-full <%= budget_category.percent_of_budget_spent > 100 ? "bg-destructive" : "bg-success" %>" style="width: <%= [ budget_category.percent_of_budget_spent, 100 ].min %>%"></div>
+        </div>
+        <p class="text-xs text-secondary whitespace-nowrap privacy-sensitive">
+          <%= budget_category.actual_spending_money.format(precision: 0) %> / <%= budget_category.budgeted_spending_money.format(precision: 0) %>
+        </p>
+      </div>
+    <% end %>
   </div>
 
   <div class="shrink-0" data-testid="category-actions">

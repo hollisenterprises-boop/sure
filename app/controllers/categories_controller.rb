@@ -7,6 +7,7 @@ class CategoriesController < ApplicationController
     @categories = Current.family.categories.ordered.to_a
     @category_groups = Category::Group.for(@categories)
     @category_ids_with_transactions = category_ids_with_transactions(@categories)
+    @budget_categories_by_category_id = current_month_budget_categories_by_category_id
 
     render layout: "settings"
   end
@@ -151,5 +152,16 @@ class CategoriesController < ApplicationController
     def record_error_message(error)
       record = error.respond_to?(:record) ? error.record : nil
       record&.errors&.full_messages&.to_sentence.presence || error.message
+    end
+
+    # Looks up the current month's budget without bootstrapping one, so
+    # visiting the Categories page never creates a Budget record as a
+    # side effect.
+    def current_month_budget_categories_by_category_id
+      period_start, _period_end = Budget.period_for(Date.current, family: Current.family)
+      budget = Current.family.budgets.find_by(start_date: period_start)
+      return {} unless budget
+
+      budget.budget_categories.includes(:category).index_by(&:category_id)
     end
 end

@@ -16,6 +16,23 @@ class CategoriesControllerTest < ActionDispatch::IntegrationTest
     assert_select "#category_#{categories(:food_and_drink).id} [data-testid='category-name']", text: categories(:food_and_drink).name
   end
 
+  test "index shows an inline budget bar for categories with a current-month budget" do
+    budget = budgets(:one)
+    BudgetCategory.create!(budget: budget, category: categories(:food_and_drink), budgeted_spending: 200, currency: budget.currency)
+
+    get categories_url
+
+    assert_response :success
+    assert_select "#category_#{categories(:food_and_drink).id} .bg-success, #category_#{categories(:food_and_drink).id} .bg-destructive", minimum: 1
+  end
+
+  test "index does not show a budget bar for categories with no budgeted amount" do
+    get categories_url
+
+    assert_response :success
+    assert_select "#category_#{categories(:food_and_drink).id} .bg-success, #category_#{categories(:food_and_drink).id} .bg-destructive", count: 0
+  end
+
   test "index avoids per-category subcategory and transaction existence queries" do
     4.times do |idx|
       parent = @family.categories.create!(
