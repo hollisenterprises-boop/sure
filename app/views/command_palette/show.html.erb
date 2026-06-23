@@ -1,0 +1,42 @@
+<%= turbo_frame_tag "command_palette_results" do %>
+  <% if params[:q].to_s.strip.blank? %>
+    <p class="text-sm text-secondary text-center py-6"><%= t("UI.command_palette.prompt") %></p>
+  <% elsif @accounts.empty? && @entries.empty? && @pages.empty? %>
+    <p class="text-sm text-secondary text-center py-6"><%= t("UI.command_palette.no_results") %></p>
+  <% else %>
+    <div class="space-y-4">
+      <% if @pages.any? %>
+        <div>
+          <p class="px-1 pb-1 text-xs uppercase font-medium text-secondary"><%= t("UI.command_palette.sections.pages") %></p>
+          <div class="space-y-0.5">
+            <% @pages.each do |page| %>
+              <%= render "command_palette/page_result", page: page %>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <% if @accounts.any? %>
+        <div>
+          <p class="px-1 pb-1 text-xs uppercase font-medium text-secondary"><%= t("UI.command_palette.sections.accounts") %></p>
+          <div class="space-y-0.5">
+            <% @accounts.each do |account| %>
+              <%= render "command_palette/account_result", account: account %>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <% if @entries.any? %>
+        <div>
+          <p class="px-1 pb-1 text-xs uppercase font-medium text-secondary"><%= t("UI.command_palette.sections.transactions") %></p>
+          <div class="space-y-0.5">
+            <% @entries.each do |entry| %>
+              <%= render "command_palette/entry_result", entry: entry %>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+<% end %>

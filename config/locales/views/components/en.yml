@@ -1,6 +1,29 @@
 ---
 en:
   UI:
+    command_palette:
+      placeholder: "Search accounts, transactions, settings..."
+      prompt: "Start typing to search"
+      no_results: "No results found"
+      sections:
+        pages: Pages
+        accounts: Accounts
+        transactions: Transactions
+      pages:
+        accounts: Accounts
+        transactions: Transactions
+        budgets: Budgets
+        reports: Reports
+        goals: Goals
+        assistant: Assistant
+        categories: Categories
+        tags: Tags
+        rules: Rules
+        merchants: Merchants
+        imports: Imports
+        preferences: Preferences
+        appearance: Appearance
+        security: Security
     period_picker:
       aria_label: "Time period: %{period}"
     account:

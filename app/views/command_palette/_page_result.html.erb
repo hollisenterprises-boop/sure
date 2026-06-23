@@ -1,0 +1,7 @@
+<%# locals: (page:) %>
+<%= link_to page.path,
+    data: { turbo_frame: "_top", action: "click->command-palette#close", command_palette_target: "resultLink" },
+    class: "flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-surface-hover focus-visible:bg-surface-hover outline-none" do %>
+  <%= render DS::FilledIcon.new(icon: page.icon, size: "sm", rounded: true) %>
+  <span class="text-sm font-medium text-primary"><%= page.label %></span>
+<% end %>

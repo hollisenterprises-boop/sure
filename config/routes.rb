@@ -310,6 +310,8 @@ Rails.application.routes.draw do
     resources :budget_categories, only: %i[index show update]
   end
 
+  resource :command_palette, only: :show, controller: "command_palette"
+
   resources :goals do
     member do
       patch :pause

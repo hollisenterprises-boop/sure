@@ -1,0 +1,34 @@
+<%= render DS::Dialog.new(
+      id: "command-palette",
+      auto_open: false,
+      width: "md",
+      disable_frame: true,
+      disable_click_outside: false,
+      data: { command_palette_target: "dialog", action: "keydown->command-palette#navigate" }
+    ) do |dialog| %>
+  <% dialog.with_body do %>
+    <%= form_with url: command_palette_path, method: :get, data: { controller: "auto-submit-form", command_palette_target: "form", turbo_frame: "command_palette_results" } do |form| %>
+      <div class="flex items-center gap-2 px-1 pb-3 border-b border-secondary">
+        <%= icon("search", color: "secondary") %>
+        <%= form.text_field :q,
+              placeholder: t("UI.command_palette.placeholder"),
+              autocomplete: "off",
+              autofocus: true,
+              class: "form-field__input grow text-base border-none focus:ring-0 p-0",
+              data: {
+                command_palette_target: "input",
+                auto_submit_form_target: "auto",
+                autosubmit_trigger_event: "input",
+                autosubmit_debounce_timeout: 150
+              } %>
+        <%= render DS::Pill.new(label: "esc", tone: :neutral, marker: false, size: :sm) %>
+      </div>
+    <% end %>
+
+    <div class="mt-3 max-h-[60vh] overflow-y-auto" data-command-palette-target="results">
+      <%= turbo_frame_tag "command_palette_results" do %>
+        <p class="text-sm text-secondary text-center py-6"><%= t("UI.command_palette.prompt") %></p>
+      <% end %>
+    </div>
+  <% end %>
+<% end %>
