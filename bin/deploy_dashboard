@@ -1,0 +1,114 @@
+#!/usr/bin/env node
+// Standalone live + historical view of bin/deploy_locally runs. Deliberately
+// NOT part of the Rails app -- it has to keep running and stay reachable
+// while the app's own containers are being recreated mid-deploy, so it can
+// prove whether the new container actually came up with the new code.
+// Local-only: binds to 127.0.0.1, no auth, not meant to be exposed.
+//
+// Usage: bin/deploy_dashboard [port]   (default port 4567)
+
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
+
+const APP_ROOT = path.join(__dirname, "..");
+const RUNS_LOG = path.join(APP_ROOT, "tmp", "deploy_runs.jsonl");
+const PORT = parseInt(process.argv[2] || "4567", 10);
+
+function loadRuns() {
+  if (!fs.existsSync(RUNS_LOG)) return [];
+  return fs
+    .readFileSync(RUNS_LOG, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function statusColor(status) {
+  if (status === "success") return "#16a34a";
+  if (status === "failed" || status === "rollback_failed") return "#dc2626";
+  if (status === "rolled_back") return "#d97706";
+  return "#2563eb";
+}
+
+function renderStep(step) {
+  const icon = step.status === "passed" ? "✓" : step.status === "failed" ? "✗" : "…";
+  const color = step.status === "failed" ? "#dc2626" : step.status === "passed" ? "#16a34a" : "#2563eb";
+  const duration = step.duration_s ? ` (${step.duration_s}s)` : "";
+  const error = step.error
+    ? `<div style="color:#dc2626;font-size:12px;margin-left:24px;white-space:pre-wrap">${escapeHtml(step.error)}</div>`
+    : "";
+  return `
+    <div style="display:flex;align-items:center;gap:8px;padding:4px 0;color:${color}">
+      <span style="width:16px">${icon}</span>
+      <span>${escapeHtml(step.name)}${duration}</span>
+    </div>
+    ${error}
+  `;
+}
+
+function renderRun(run, live) {
+  const stepsHtml = (run.steps || []).map(renderStep).join("");
+  const badge = `<span style="background:${statusColor(run.status)};color:white;padding:2px 8px;border-radius:999px;font-size:12px">${escapeHtml(run.status)}</span>`;
+  const liveBadge = live
+    ? `<span style="background:#2563eb;color:white;padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px">LIVE</span>`
+    : "";
+  return `
+    <div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div><strong>${escapeHtml((run.commit_sha || "").slice(0, 12))}</strong> ${badge}${liveBadge}</div>
+        <div style="color:#6b7280;font-size:12px">${escapeHtml(run.updated_at)}</div>
+      </div>
+      ${stepsHtml}
+    </div>
+  `;
+}
+
+function page() {
+  const runs = loadRuns();
+  const liveRun = runs.find((r) => r.status === "running" || r.status === "rolling_back");
+  const rows = runs.map((r) => renderRun(r, liveRun && r.run_id === liveRun.run_id)).join("");
+  const refresh = liveRun ? `<meta http-equiv="refresh" content="2">` : "";
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Deploy Dashboard</title>
+  ${refresh}
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; background: #fafafa; }
+    h1 { font-size: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Deploy Dashboard</h1>
+  ${runs.length === 0 ? `<p style="color:#6b7280">No deploys yet -- run bin/deploy_locally</p>` : rows}
+</body>
+</html>`;
+}
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/html" });
+  res.end(page());
+});
+
+server.listen(PORT, "127.0.0.1", () => {
+  console.log(`Deploy dashboard running at http://127.0.0.1:${PORT}`);
+});
