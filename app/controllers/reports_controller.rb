@@ -598,6 +598,7 @@ class ReportsController < ApplicationController
         total_assets: Money.new(total_assets, currency),
         total_liabilities: Money.new(total_liabilities, currency),
         trend: trend,
+        series: net_worth_series,
         asset_groups: asset_groups,
         liability_groups: liability_groups
       }
