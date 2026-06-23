@@ -1,0 +1,18 @@
+<%# locals: (upcoming_recurring:, **args) %>
+
+<div id="upcoming-recurring" class="space-y-4">
+  <div class="flex items-center justify-between px-4">
+    <p class="text-sm text-secondary"><%= t(".subtitle") %></p>
+    <%= link_to t(".view_all"), recurring_transactions_path, class: "text-sm font-medium text-secondary hover:text-primary" %>
+  </div>
+
+  <% if upcoming_recurring.any? %>
+    <div class="divide-y divide-primary">
+      <% upcoming_recurring.each do |recurring_transaction| %>
+        <%= render "recurring_transactions/projected_transaction", recurring_transaction: recurring_transaction %>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="text-sm text-secondary text-center py-6"><%= t(".no_upcoming_payments") %></p>
+  <% end %>
+</div>
