@@ -1,4 +1,13 @@
 <div class="space-y-6">
+  <%# Trend chart %>
+  <% if net_worth_metrics[:series]&.any? %>
+    <div
+      class="w-full min-h-52 privacy-sensitive"
+      style="height: 13rem;"
+      data-controller="time-series-chart"
+      data-time-series-chart-data-value="<%= net_worth_metrics[:series].to_json %>"></div>
+  <% end %>
+
   <%# Main Net Worth Stats %>
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
     <%# Current Net Worth %>
