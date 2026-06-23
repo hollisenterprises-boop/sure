@@ -1,0 +1,13 @@
+<%# locals: (suggestions:, **args) %>
+
+<div id="ai-suggestions" class="flex flex-wrap gap-2 mb-6">
+  <% suggestions.each do |suggestion| %>
+    <%= button_to chats_path,
+        params: { chat: { content: suggestion.prompt } },
+        method: :post,
+        class: "flex items-center gap-2 border border-tertiary rounded-full py-1.5 px-3 text-sm text-primary hover:bg-surface-hover transition-colors" do %>
+      <%= icon(suggestion.icon, size: "sm") %>
+      <%= suggestion.text %>
+    <% end %>
+  <% end %>
+</div>
