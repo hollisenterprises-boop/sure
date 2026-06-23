@@ -118,10 +118,14 @@ cleanup_check_containers() {
 }
 
 run_tests_isolated() {
+  # Throwaway credential for an isolated, ephemeral container that only
+  # ever exists for the duration of this function -- not a real secret.
+  local pg_password="postgres" # pipelock:ignore
+
   cleanup_check_containers
   docker network create sure-checks-net >/dev/null
   docker run -d --rm --name sure-checks-pg --network sure-checks-net \
-    -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres postgres:16 >/dev/null
+    -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD="$pg_password" postgres:16 >/dev/null
   docker run -d --rm --name sure-checks-redis --network sure-checks-net redis:latest >/dev/null
 
   # Wait for Postgres to accept connections before handing off to Rails.
@@ -134,7 +138,7 @@ run_tests_isolated() {
     -e RAILS_ENV=test \
     -e DB_HOST=sure-checks-pg \
     -e POSTGRES_USER=postgres \
-    -e POSTGRES_PASSWORD=postgres \
+    -e POSTGRES_PASSWORD="$pg_password" \
     -e POSTGRES_DB=sure_test \
     -e REDIS_URL=redis://sure-checks-redis:6379 \
     -e PLAID_CLIENT_ID=foo \
