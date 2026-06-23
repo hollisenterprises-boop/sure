@@ -1,6 +1,11 @@
 ---
 en:
   UI:
+    chat_suggestions:
+      alert_prompt: "Tell me more about this: %{alert_title}"
+      spending_insights: "Show my spending insights"
+      evaluate_portfolio: "Evaluate my investment portfolio"
+      save_money: "Where can I save money?"
     insights:
       category_increase: "%{category} spending is up %{percent}% vs last month (now %{amount})"
       category_decrease: "%{category} spending is down %{percent}% vs last month (now %{amount})"

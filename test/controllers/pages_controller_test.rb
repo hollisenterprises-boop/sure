@@ -14,6 +14,24 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
   end
 
+  test "dashboard shows AI suggestion chips when AI is enabled" do
+    @user.update!(ai_enabled: true)
+
+    get root_path
+
+    assert_response :ok
+    assert_select "#ai-suggestions form", minimum: 1
+  end
+
+  test "dashboard hides AI suggestion chips when AI is disabled" do
+    @user.update!(ai_enabled: false)
+
+    get root_path
+
+    assert_response :ok
+    assert_select "#ai-suggestions", count: 0
+  end
+
   test "dashboard shows uncategorized nudge with the correct count" do
     create_transaction(account: @family.accounts.first, name: "Needs a category", amount: 30)
 

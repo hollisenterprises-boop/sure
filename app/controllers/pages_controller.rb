@@ -58,6 +58,12 @@ class PagesController < ApplicationController
                                   .includes(:merchant)
                                   .order(:next_expected_date)
 
+    @ai_suggestions = if Current.user.ai_enabled?
+      ChatSuggestions::Generator.for(alerts: Alerts::Detector.for(Current.family))
+    else
+      []
+    end
+
     @dashboard_sections = build_dashboard_sections
 
     @breadcrumbs = [ [ t("breadcrumbs.home"), root_path ], [ t("breadcrumbs.dashboard"), nil ] ]

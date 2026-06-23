@@ -43,6 +43,10 @@
       <%= icon("chevron-right", size: "sm", class: "ml-auto shrink-0 text-secondary group-hover:text-primary transition-colors") %>
     <% end %>
   <% end %>
+
+  <% if @ai_suggestions.present? %>
+    <%= render "pages/dashboard/ai_suggestions", suggestions: @ai_suggestions %>
+  <% end %>
 <% end %>
 
 <%= turbo_frame_tag "dashboard_sections", target: "_top" do %>
